@@ -1,96 +1,119 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onHomeTap;
-  const ProfilePage({super.key, this.onHomeTap});
+  final Function(bool) onThemeChanged;
+  final bool isDarkMode;
+
+  const ProfilePage({
+    super.key,
+    this.onHomeTap,
+    required this.onThemeChanged,
+    required this.isDarkMode,
+  });
+
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
 class _ProfilePageState extends State<ProfilePage> {
   final List<Map<String, String>> teamMembers = [
-    {'Nama': 'Sanggul Rotua Pakpahan', 'NIM': '21120122120018'},
+    {
+      'Nama': 'justi a',
+      'NIM': '21120122120018',
+      'githubUsername': 'Justinadva'
+    },
+    {
+      'Nama': 'Muhammad Arif Maulana',
+      'NIM': '21120123130111',
+      'githubUsername': 'RedzzAja'
+    },
+    {
+      'Nama': 'Althaf',
+      'NIM': '21120123149000',
+      'githubUsername': 'Althaftaa'
+    },
+    {
+      'Nama': 'Dimas',
+      'NIM': '21120123150009',
+      'githubUsername': 'dimasagussaputra'
+    },
   ];
+
+  Future<void> _launchURL(String username) async {
+    final Uri url = Uri.parse('https://github.com/$username');
+    if (!await launchUrl(url)) {
+      throw 'Could not launch $url';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: const Color.fromARGB(255, 13, 105, 225),
+        title: const Text('Profile Kelompok'),
         actions: [
-          IconButton(icon: const Icon(Icons.home), onPressed: widget.onHomeTap),
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: widget.onHomeTap,
+          ),
+          Switch(
+            value: widget.isDarkMode,
+            onChanged: widget.onThemeChanged,
+          ),
         ],
       ),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: FractionallySizedBox(
-              alignment: Alignment.topCenter,
-              heightFactor: 0.5,
-              child: Container(
-                decoration: BoxDecoration(
-                  image: const DecorationImage(
-                    fit: BoxFit.cover,
+      body: ListView.builder(
+        padding: const EdgeInsets.all(8.0),
+        itemCount: teamMembers.length,
+        itemBuilder: (context, index) {
+          final member = teamMembers[index];
+          final githubUsername = member['githubUsername']!;
 
-                    alignment: Alignment.topCenter,
-                    image: NetworkImage(
-                      'https://cdn.myanimelist.net/s/common/uploaded_files/1444014275-106dee95104209bb9436d6df2b6d5145.jpeg',
+          return Card(
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: NetworkImage(
+                      'https://avatars.githubusercontent.com/$githubUsername',
                     ),
                   ),
-                  color: const Color.fromARGB(
-                    255,
-                    255,
-
-                    252,
-                    252,
-                  ).withValues(alpha: 128),
-                ),
+                  const SizedBox(width: 16.0),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          member['Nama'] ?? 'No Name',
+                          style: const TextStyle(
+                            fontSize: 18.0,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4.0),
+                        Text(
+                          member['NIM'] ?? 'No NIM',
+                          style: const TextStyle(fontSize: 14.0),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.link),
+                    onPressed: () => _launchURL(githubUsername),
+                    tooltip: 'Kunjungi Profil GitHub',
+                  ),
+                ],
               ),
             ),
-          ),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100.0,
-                  height: 100.0,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                      fit: BoxFit.cover,
-                      image: NetworkImage(
-                        'https://avatars.githubusercontent.com/SanggulRotuaPakpahan',
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16.0),
-                for (var member in teamMembers)
-                  Column(
-                    children: [
-                      Text(
-                        member['Nama'] ?? 'No Name',
-                        style: const TextStyle(
-                          fontSize: 20.0,
-
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8.0),
-                      Text(
-                        member['NIM'] ?? 'No NIM',
-
-                        style: const TextStyle(fontSize: 16.0),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

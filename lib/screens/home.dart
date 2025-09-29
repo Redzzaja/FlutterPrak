@@ -1,72 +1,161 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'detail.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final Function(List<Country>) onCountriesLoaded;
+  final Function(Set<String>) onFavoritesChanged;
+
+  const HomePage({
+    super.key,
+    required this.onCountriesLoaded,
+    required this.onFavoritesChanged,
+  });
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Country>> countries;
+  final List<Country> _allCountries = [];
+  final List<Country> _displayCountries = [];
+  Set<String> _favoriteCountryNames = {};
+  final _scrollController = ScrollController();
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  final int _perPage = 20;
+
   @override
   void initState() {
     super.initState();
-    countries = fetchCountries();
+    _fetchAndLoadCountries();
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<List<Country>> fetchCountries() async {
-    final uri = Uri.parse('https://www.apicountries.com/countries');
-    final request = await HttpClient().getUrl(uri);
-    final response = await request.close();
-    if (response.statusCode == 200) {
-      final respBody = await response.transform(utf8.decoder).join();
-      final List<dynamic> jsonData = jsonDecode(respBody);
-      return jsonData.map((j) => Country.fromJson(j)).toList();
-    } else {
-      throw Exception('Failed to load countries:${response.statusCode}');
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchAndLoadCountries() async {
+    await _loadFavorites();
+    try {
+      final uri = Uri.parse('https://www.apicountries.com/countries');
+      final request = await HttpClient().getUrl(uri);
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final respBody = await response.transform(utf8.decoder).join();
+        final List<dynamic> jsonData = jsonDecode(respBody);
+        _allCountries.addAll(jsonData.map((j) => Country.fromJson(j)).toList());
+        widget.onCountriesLoaded(_allCountries);
+        _loadMoreCountries();
+      } else {
+        throw Exception('Failed to load countries: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Handle error
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  void _loadMoreCountries() {
+    if (_isLoadingMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    // Simulasi jeda jaringan
+    Future.delayed(const Duration(milliseconds: 500), () {
+      final currentLength = _displayCountries.length;
+      final nextItems = _allCountries.skip(currentLength).take(_perPage);
+      _displayCountries.addAll(nextItems);
+      _isLoadingMore = false;
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      _loadMoreCountries();
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favorites = prefs.getStringList('favoriteCountries') ?? [];
+    if (mounted) {
+      setState(() {
+        _favoriteCountryNames = favorites.toSet();
+        widget.onFavoritesChanged(_favoriteCountryNames);
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite(String countryName) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_favoriteCountryNames.contains(countryName)) {
+        _favoriteCountryNames.remove(countryName);
+      } else {
+        _favoriteCountryNames.add(countryName);
+      }
+      prefs.setStringList('favoriteCountries', _favoriteCountryNames.toList());
+      widget.onFavoritesChanged(_favoriteCountryNames);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Countries')),
-      body: FutureBuilder<List<Country>>(
-        future: countries,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+        controller: _scrollController,
+        itemCount: _displayCountries.length + (_isLoadingMore ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (i == _displayCountries.length) {
             return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error:${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No countries found'));
           }
-          final list = snapshot.data!;
-          return ListView.builder(
-            itemCount: list.length,
-            itemBuilder: (context, i) {
-              final country = list[i];
-              return Card(
-                child: ListTile(
-                  leading: country.flagsPng != null
-                      ? Image.network(country.flagsPng!, width: 50)
-                      : const SizedBox(width: 50),
-                  title: Text(country.name),
-                  subtitle: Text(country.region),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailPage(country: country),
-                      ),
-                    );
-                  },
+
+          final country = _displayCountries[i];
+          final isFavorite = _favoriteCountryNames.contains(country.name);
+
+          return Card(
+            child: ListTile(
+              leading: country.flagsPng != null
+                  ? Image.network(country.flagsPng!, width: 50)
+                  : const SizedBox(width: 50),
+              title: Text(country.name),
+              subtitle: Text(country.region),
+              trailing: IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : null,
                 ),
-              );
-            },
+                onPressed: () => _toggleFavorite(country.name),
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailPage(country: country),
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -82,6 +171,7 @@ class Country {
   final String? flagsPng;
   final List<String>? languages;
   final List<String>? currencies;
+
   Country({
     required this.name,
     required this.region,
@@ -91,6 +181,7 @@ class Country {
     this.languages,
     this.currencies,
   });
+
   factory Country.fromJson(Map<String, dynamic> json) {
     List<String>? langs;
     if (json['languages'] != null) {
