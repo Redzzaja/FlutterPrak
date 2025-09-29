@@ -43,7 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _launchURL(String username) async {
     final Uri url = Uri.parse('https://github.com/$username');
-    if (!await launchUrl(url)) {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw 'Could not launch $url';
     }
   }
@@ -64,8 +64,14 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8.0),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(16.0),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, // Menampilkan 2 kartu per baris
+          crossAxisSpacing: 16.0,
+          mainAxisSpacing: 16.0,
+          childAspectRatio: 1.0, // Membuat kartu menjadi persegi
+        ),
         itemCount: teamMembers.length,
         itemBuilder: (context, index) {
           final member = teamMembers[index];
@@ -73,37 +79,39 @@ class _ProfilePageState extends State<ProfilePage> {
 
           return Card(
             elevation: 4,
-            margin: const EdgeInsets.symmetric(vertical: 8.0),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Foto Profil
                   CircleAvatar(
-                    radius: 40,
+                    radius: 35,
                     backgroundImage: NetworkImage(
                       'https://avatars.githubusercontent.com/$githubUsername',
                     ),
                   ),
-                  const SizedBox(width: 16.0),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          member['Nama'] ?? 'No Name',
-                          style: const TextStyle(
-                            fontSize: 18.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4.0),
-                        Text(
-                          member['NIM'] ?? 'No NIM',
-                          style: const TextStyle(fontSize: 14.0),
-                        ),
-                      ],
+                  const SizedBox(height: 10.0),
+
+                  // Nama
+                  Text(
+                    member['Nama'] ?? 'No Name',
+                    style: const TextStyle(
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 4.0),
+
+                  // NIM
+                  Text(
+                    member['NIM'] ?? 'No NIM',
+                    style: const TextStyle(fontSize: 12.0),
+                  ),
+                  const SizedBox(height: 8.0),
+
+                  // Ikon Link GitHub
                   IconButton(
                     icon: const Icon(Icons.link),
                     onPressed: () => _launchURL(githubUsername),
